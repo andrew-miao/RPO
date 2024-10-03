@@ -69,7 +69,6 @@ from diffusers.utils.torch_utils import is_compiled_module
 
 from utils import (
     load_prompts, 
-    upload_file_to_gcs, 
     remove_unique_token, 
     clean_subject, 
     training_prompts,
@@ -169,7 +168,7 @@ def evaluation(
 
     logger.info(f"Running evaluation...")
     dino_score, clip_i_score, clip_t_score, rewards = [], [], [], []
-    reward_model = RewardModel(args.instance_data_dir, rtype="mix")
+    reward_model = RewardModel(args.reference_data_dir, rtype="mix")
     generator = torch.Generator(device=accelerator.device).manual_seed(args.seed) if args.seed else None
     for test_prompt in tqdm(
         test_prompts, 
@@ -188,8 +187,8 @@ def evaluation(
         
         # ----------------------- Evaluation ----------------------- #
         clean_test_prompt = remove_unique_token(test_prompt, "[V]")
-        dino = DINO_score(args.instance_data_dir, images)
-        clip_i = CLIP_I_score(args.instance_data_dir, images)
+        dino = DINO_score(args.reference_data_dir, images)
+        clip_i = CLIP_I_score(args.reference_data_dir, images)
         clip_t = CLIP_T_score([clean_test_prompt] * len(images), images)
         reward = reward_model.get_reward(images, [clean_test_prompt] * len(images))
 
@@ -201,8 +200,6 @@ def evaluation(
         for i, image in enumerate(images):
             image_filename = local_path + f"{test_prompt}-{i}.jpg"
             image.save(image_filename)
-            # ----------------------- Upload images to Google Cloud ----------------------- #
-            upload_file_to_gcs(image_filename, args.bucket, f"lambda={args.reward_lambda}/generated_images/dreambooth_lora/{args.subject}/{test_prompt}-{i}.jpg")
 
     results = {
         "DINO Score": np.mean(dino_score),
@@ -278,6 +275,7 @@ def encode_prompt(text_encoder, input_ids, attention_mask, text_encoder_use_atte
 
 
 def main(args):
+    print("Initializing accelerator...", flush=True)
     if args.report_to == "wandb" and args.hub_token is not None:
         raise ValueError(
             "You cannot use both --report_to=wandb and --hub_token due to a security risk of exposing your token."
@@ -294,7 +292,7 @@ def main(args):
         log_with=args.report_to,
         project_config=accelerator_project_config,
     )
-
+    print("Accelerator initialized.", flush=True)
     # Disable AMP for MPS.
     if torch.backends.mps.is_available():
         accelerator.native_amp = False
@@ -329,15 +327,16 @@ def main(args):
     # If passed along, set the training seed now.
     if args.seed is not None:
         set_seed(args.seed)
+    print("Generating sample images...", flush=True)
 
     # -------------------------- Generate sample images from the pretrained model -------------------------- #
-    class_images_dir = Path(args.class_data_dir)
+    class_images_dir = Path(args.generated_data_dir)
     os.makedirs(class_images_dir, exist_ok=True)
     sub_folders = [name for name in os.listdir(class_images_dir)
                     if os.path.isdir(os.path.join(class_images_dir, name))]
     num_generated_folders = len(sub_folders)
     
-    instance_images_dir = Path(args.instance_data_dir)
+    instance_images_dir = Path(args.reference_data_dir)
     num_prompts = len(list(instance_images_dir.iterdir()))
     subject = clean_subject(args.subject)
     live_subjects = ["dog", "dog2", "dog3", "dog5", "dog6", "dog7", "dog8", "cat", "cat2"]
@@ -362,6 +361,7 @@ def main(args):
     pipeline.to(accelerator.device)
     
     shutil.rmtree(class_images_dir, ignore_errors=True)
+    logger.info(f"Generating training images.")
     if num_generated_folders < num_prompts:
         for prompt in tqdm(generated_prompts, desc="Generating sample images", disable=IS_STDOUT):
             print(f"Prompt = {prompt}")
@@ -604,7 +604,7 @@ def main(args):
 
             return prompt_embeds
 
-        pre_computed_encoder_hidden_states = compute_text_embeddings(args.instance_prompt)
+        pre_computed_encoder_hidden_states = compute_text_embeddings(args.reference_prompt)
         validation_prompt_negative_prompt_embeds = compute_text_embeddings("")
 
         if args.validation_prompt is not None:
@@ -630,9 +630,9 @@ def main(args):
 
     # Dataset and DataLoaders creation
     train_dataset = PreferenceDataset(
-        reference_data_root=args.instance_data_dir,
-        generated_data_root=args.class_data_dir,
-        prompt=args.instance_prompt,
+        reference_data_root=args.reference_data_dir,
+        generated_data_root=args.generated_data_dir,
+        prompt=args.reference_prompt,
         desc_prompts=generated_prompts,
         tokenizer=tokenizer,
         size=args.resolution,
@@ -682,7 +682,7 @@ def main(args):
     if accelerator.is_main_process:
         tracker_config = vars(copy.deepcopy(args))
         tracker_config.pop("validation_images")
-        accelerator.init_trackers("rpo-lora", config=tracker_config)
+        accelerator.init_trackers("rpo", config=tracker_config)
 
     # Validation
     validate_prompts = validation_prompts("[V]", args.class_token)
@@ -703,10 +703,10 @@ def main(args):
             
             scheduler_args["variance_type"] = variance_type
 
-        validation_path = f"validation_images/rpo_lora/{args.subject}/"
+        validation_path = f"logs/validation_images/rpo/{args.subject}/"
         os.makedirs(validation_path, exist_ok=True)
         
-        reward_model = RewardModel(args.instance_data_dir, rtype="mix")
+        reward_model = RewardModel(args.reference_data_dir, rtype="mix")
         generator = torch.Generator(device=accelerator.device).manual_seed(args.seed) if args.seed else None
         for prompt in validate_prompts:
             images = []
@@ -900,10 +900,6 @@ def main(args):
                         shutil.rmtree(save_path)
                         os.makedirs(save_path)
 
-                        unet_lora_state_dict = convert_state_dict_to_diffusers(get_peft_model_state_dict(
-                            unwrap_model(unet).to(torch.float32)
-                        ))
-
                         pipeline.save_pretrained(save_path)
                         logger.info(f"Max reward increasing from {max_reward:.3f} to {reward:.3f}, Saved state to {save_path}")
                         max_reward = reward
@@ -928,11 +924,11 @@ def main(args):
     # if accelerator.is_main_process:
     #     evaluation(pipeline, args, accelerator)
     shutil.rmtree(class_images_dir)
-    shutil.rmtree("validation_images")
+    shutil.rmtree("logs/validation_images")
     accelerator.end_training()
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="RPO of a training script.")
-    args = rpo_lora_args(parser)
+    args = rpo_sd_args(parser)
     main(args)

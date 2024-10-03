@@ -1,7 +1,6 @@
 import os
 from PIL import Image
 import numpy as np
-from google.cloud import storage
 import logging
 import re
 from transformers import AutoProcessor, LlavaForConditionalGeneration
@@ -24,17 +23,6 @@ def read_images(directory):
             images.append(image)
     return images
 
-def upload_images_to_gcs(localpath, bucket_name, destination_blob_name):
-    storage_client = storage.Client()
-    bucket = storage_client.bucket(bucket_name)
-    blob = bucket.blob(destination_blob_name)
-    for filename in os.listdir(localpath):
-        if filename.endswith(".jpg") or filename.endswith(".png"):
-            local_file = os.path.join(localpath, filename)
-            blob_name = os.path.join(destination_blob_name, filename)
-            blob = bucket.blob(blob_name)
-            blob.upload_from_filename(local_file)
-            print(f"Uploaded {local_file} to gs://{bucket_name}/{blob_name}.")
 
 def remove_unique_token(text, token_to_remove="sks"):
     cleaned_text = re.sub(r'\s*\b' + re.escape(token_to_remove) + r'\b\s*', ' ', text)
@@ -46,42 +34,6 @@ def clean_subject(subject):
     cleaned_subject = re.sub(r'\d+', '', subject)
     cleaned_subject = re.sub(r'_', ' ', cleaned_subject)
     return cleaned_subject
-
-def upload_file_to_gcs(localpath, bucket_name, destination_blob_name):
-    storage_client = storage.Client()
-    bucket = storage_client.bucket(bucket_name)
-    blob = bucket.blob(destination_blob_name)
-    blob.upload_from_filename(localpath)
-    print(f"Uploaded {localpath} to gs://{bucket_name}/{destination_blob_name}.")
-
-def list_npy_files(bucket_name, prefix):
-    """Lists all the files in the bucket that are within the specified prefix and ends with .json."""
-    storage_client = storage.Client()
-    bucket = storage_client.get_bucket(bucket_name)
-    blobs = bucket.list_blobs(prefix=prefix)  # List all objects that start with the prefix
-    print(f"blobs: {blobs}")
-    return [blob for blob in blobs if blob.name.endswith('.npy')]
-
-def list_json_files(bucket_name, prefix):
-    """Lists all the files in the bucket that are within the specified prefix and ends with .json."""
-    storage_client = storage.Client()
-    bucket = storage_client.get_bucket(bucket_name)
-    blobs = bucket.list_blobs(prefix=prefix)  # List all objects that start with the prefix
-    print(f"blobs: {blobs}")
-    return [blob for blob in blobs if blob.name.endswith('.json')]
-
-def download_and_save(bucket_name, blob_name, download_path):
-    """Downloads a file from GCS and saves it to a specified local path."""
-    storage_client = storage.Client()
-    bucket = storage_client.bucket(bucket_name)
-    blob = bucket.blob(blob_name)
-    
-    # Ensure the download directory exists
-    os.makedirs(os.path.dirname(download_path), exist_ok=True)
-
-    # Download the file to a local path
-    blob.download_to_filename(download_path)
-    print(f"Downloaded '{blob_name}' to '{download_path}'")
 
 def setup_logger():
     # Configure the logging system

@@ -462,11 +462,11 @@ def dreambooth_lora_args(parser, input_args=None):
         help="Pretrained tokenizer name or path if not the same as model_name",
     )
     parser.add_argument(
-        "--instance_data_dir",
+        "--reference_data_dir",
         type=str,
         default=None,
         required=True,
-        help="A folder containing the training data of instance images.",
+        help="A folder containing the training data of reference images.",
     )
     parser.add_argument(
         "--class_data_dir",
@@ -809,11 +809,11 @@ def rpo_sd_args(parser, input_args=None):
         help="Pretrained tokenizer name or path if not the same as model_name",
     )
     parser.add_argument(
-        "--instance_data_dir",
+        "--reference_data_dir",
         type=str,
         default=None,
         required=True,
-        help="A folder containing the training data of instance images.",
+        help="A folder containing the training data of reference images.",
     )
     parser.add_argument(
         "--class_data_dir",
@@ -823,11 +823,11 @@ def rpo_sd_args(parser, input_args=None):
         help="A folder containing the training data of generated images.",
     )
     parser.add_argument(
-        "--instance_prompt",
+        "--reference_prompt",
         type=str,
         default=None,
         required=True,
-        help="The prompt with identifier specifying the instance",
+        help="The prompt with identifier specifying the subject",
     )
     parser.add_argument(
         "--class_token",
@@ -872,9 +872,9 @@ def rpo_sd_args(parser, input_args=None):
         ),
     )
     parser.add_argument(
-        "--output-dir",
+        "--output_dir",
         type=str,
-        default="rpo-output",
+        default="logs/rpo-output",
         help="The output directory where the model predictions and checkpoints will be written.",
     )
     parser.add_argument(
@@ -882,6 +882,18 @@ def rpo_sd_args(parser, input_args=None):
         type=str,
         default="rpo-model",
         help="The directory for saving pipeline"
+    )
+    parser.add_argument(
+        "--generated_data_dir",
+        type=str,
+        default="generated_data",
+        help="The directory for saving training generated images"
+    )
+    parser.add_argument(
+        "--beta", type=float, default=1.0, help="The weight of KL divergence in RPO."
+    )
+    parser.add_argument(
+        "--eval_steps", type=int, default=10, help="Evaluate every X steps."
     )
     parser.add_argument("--seed", type=int, default=None, help="A seed for reproducible training.")
     parser.add_argument(
