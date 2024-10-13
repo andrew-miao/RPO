@@ -49,22 +49,15 @@ import diffusers
 from diffusers import (
     AutoencoderKL,
     DDPMScheduler,
-    DiffusionPipeline,
-    DPMSolverMultistepScheduler,
     StableDiffusionPipeline,
     UNet2DConditionModel,
+    DiffusionPipeline,
 )
-from diffusers.loaders import LoraLoaderMixin
 from diffusers.optimization import get_scheduler
-from diffusers.training_utils import _set_state_dict_into_text_encoder, cast_training_params
-from diffusers.utils import (
-    check_min_version,
-    convert_state_dict_to_diffusers,
-    convert_unet_state_dict_to_peft,
-    is_wandb_available,
-)
+from diffusers.training_utils import cast_training_params
+
 from diffusers.utils.hub_utils import load_or_create_model_card, populate_model_card
-from diffusers.utils.import_utils import is_xformers_available
+
 from diffusers.utils.torch_utils import is_compiled_module
 
 from utils import (
@@ -75,14 +68,8 @@ from utils import (
     validation_prompts,
 )
 from evaluation_metrics import DINO_score, CLIP_I_score, CLIP_T_score, RewardModel
-from config.common_args import rpo_sd_args
 from datasets_utils import PreferenceDataset
 
-if is_wandb_available():
-    import wandb
-
-# Will error if the minimal version of diffusers is not installed. Remove at your own risks.
-# check_min_version("0.28.0.dev0")
 
 logger = get_logger(__name__)
 
@@ -138,21 +125,6 @@ def evaluation(
     args,
     accelerator,
 ):
-    # ----------------------- Load LoRA modules ----------------------- #
-    # pipeline.load_lora_weights(args.output_dir, weight_name="pytorch_lora_weights.safetensors")
-
-    # ----------------------- Load scheduler ----------------------- #
-    # scheduler_args = {}
-    # if "variance_type" in pipeline.scheduler.config:
-    #     variance_type = pipeline.scheduler.config.variance_type
-
-    #     if variance_type in ["learned", "learned_range"]:
-    #         variance_type = "fixed_small"
-        
-    #     scheduler_args["variance_type"] = variance_type
-
-    # pipeline.scheduler = DPMSolverMultistepScheduler.from_config(pipeline.scheduler.config, **scheduler_args)
-
     pipeline = pipeline.to(accelerator.device)
     pipeline.set_progress_bar_config(disable=True)
 
@@ -273,15 +245,348 @@ def encode_prompt(text_encoder, input_ids, attention_mask, text_encoder_use_atte
 
     return prompt_embeds
 
+def rpo_sd_args(parser, input_args=None):
+    parser.add_argument(
+        "--pretrained_model_name_or_path",
+        type=str,
+        default="stabilityai/stable-diffusion-2-1",
+        help="Path to pretrained model or model identifier from huggingface.co/models.",
+    )
+    parser.add_argument(
+        "--reward_lambda",
+        type=float,
+        default=0.3,
+        help="The lambda hyperparameter used in reward model.",
+    )
+    parser.add_argument(
+        "--revision",
+        type=str,
+        default=None,
+        required=False,
+        help="Revision of pretrained model identifier from huggingface.co/models.",
+    )
+    parser.add_argument(
+        "--variant",
+        type=str,
+        default=None,
+        help="Variant of the model files of the pretrained model identifier from huggingface.co/models, 'e.g.' fp16",
+    )
+    parser.add_argument(
+        "--tokenizer_name",
+        type=str,
+        default=None,
+        help="Pretrained tokenizer name or path if not the same as model_name",
+    )
+    parser.add_argument(
+        "--reference_data_dir",
+        type=str,
+        default=None,
+        required=True,
+        help="A folder containing the training data of reference images.",
+    )
+    parser.add_argument(
+        "--class_data_dir",
+        type=str,
+        default=None,
+        required=False,
+        help="A folder containing the training data of generated images.",
+    )
+    parser.add_argument(
+        "--reference_prompt",
+        type=str,
+        default=None,
+        required=True,
+        help="The prompt with identifier specifying the subject",
+    )
+    parser.add_argument(
+        "--class_token",
+        type=str,
+        default="dog",
+        help="The specific class with this subject",
+    )
+    parser.add_argument(
+        "--subject",
+        type=str,
+        default="dog",
+        help="The subject folder of the dreambooth dataset.",
+    )
+    parser.add_argument(
+        "--class_prompt",
+        type=str,
+        default=None,
+        help="The prompt to specify images in the same class as provided instance images.",
+    )
+    parser.add_argument(
+        "--num_validation_images",
+        type=int,
+        default=4,
+        help="Number of images that should be generated during validation with `validation_prompt`.",
+    )
+    parser.add_argument(
+        "--validation_step",
+        type=int,
+        default=40,
+        help=(
+            "Run RPO validation every X epochs. RPO validation consists of running the prompt"
+        ),
+    )
+    
+    parser.add_argument(
+        "--num_class_images",
+        type=int,
+        default=32,
+        help=(
+            "Minimal number of generated images. If there are not enough images already present in"
+            " class_data_dir, additional images will be sampled with class_prompt."
+        ),
+    )
+    parser.add_argument(
+        "--output_dir",
+        type=str,
+        default="logs/rpo-output",
+        help="The output directory where the model predictions and checkpoints will be written.",
+    )
+    parser.add_argument(
+        "--savepath",
+        type=str,
+        default="rpo-model",
+        help="The directory for saving pipeline"
+    )
+    parser.add_argument(
+        "--generated_data_dir",
+        type=str,
+        default="generated_data",
+        help="The directory for saving training generated images"
+    )
+    parser.add_argument(
+        "--beta", type=float, default=1.0, help="The weight of KL divergence in RPO."
+    )
+    parser.add_argument(
+        "--eval_steps", type=int, default=10, help="Evaluate every X steps."
+    )
+    parser.add_argument("--seed", type=int, default=None, help="A seed for reproducible training.")
+    parser.add_argument(
+        "--resolution",
+        type=int,
+        default=512,
+        help=(
+            "The resolution for input images, all the images in the train/validation dataset will be resized to this"
+            " resolution"
+        ),
+    )
+    parser.add_argument(
+        "--center_crop",
+        default=False,
+        action="store_true",
+        help=(
+            "Whether to center crop the input images to the resolution. If not set, the images will be randomly"
+            " cropped. The images will be resized to the resolution first before cropping."
+        ),
+    )
+    parser.add_argument(
+        "--train_text_encoder",
+        action="store_true",
+        help="Whether to train the text encoder. If set, the text encoder should be float32 precision.",
+    )
+    parser.add_argument(
+        "--train_batch_size", type=int, default=4, help="Batch size (per device) for the training dataloader."
+    )
+    parser.add_argument(
+        "--sample_batch_size", type=int, default=4, help="Batch size (per device) for sampling images."
+    )
+    parser.add_argument("--num_train_epochs", type=int, default=1)
+    parser.add_argument(
+        "--max_train_steps",
+        type=int,
+        default=None,
+        help="Total number of training steps to perform.  If provided, overrides num_train_epochs.",
+    )
+    parser.add_argument(
+        "--checkpoints_total_limit",
+        type=int,
+        default=None,
+        help=("Max number of checkpoints to store."),
+    )
+    parser.add_argument(
+        "--resume_from_checkpoint",
+        type=str,
+        default=None,
+        help=(
+            "Whether training should be resumed from a previous checkpoint. Use a path saved by"
+            ' `--checkpointing_steps`, or `"latest"` to automatically select the last available checkpoint.'
+        ),
+    )
+    parser.add_argument(
+        "--gradient_accumulation_steps",
+        type=int,
+        default=1,
+        help="Number of updates steps to accumulate before performing a backward/update pass.",
+    )
+    parser.add_argument(
+        "--gradient_checkpointing",
+        action="store_true",
+        help="Whether or not to use gradient checkpointing to save memory at the expense of slower backward pass.",
+    )
+    parser.add_argument(
+        "--learning_rate",
+        type=float,
+        default=5e-4,
+        help="Initial learning rate (after the potential warmup period) to use.",
+    )
+    parser.add_argument(
+        "--scale_lr",
+        action="store_true",
+        default=False,
+        help="Scale the learning rate by the number of GPUs, gradient accumulation steps, and batch size.",
+    )
+    parser.add_argument(
+        "--lr_scheduler",
+        type=str,
+        default="constant",
+        help=(
+            'The scheduler type to use. Choose between ["linear", "cosine", "cosine_with_restarts", "polynomial",'
+            ' "constant", "constant_with_warmup"]'
+        ),
+    )
+    parser.add_argument(
+        "--lr_warmup_steps", type=int, default=500, help="Number of steps for the warmup in the lr scheduler."
+    )
+    parser.add_argument(
+        "--lr_num_cycles",
+        type=int,
+        default=1,
+        help="Number of hard resets of the lr in cosine_with_restarts scheduler.",
+    )
+    parser.add_argument("--lr_power", type=float, default=1.0, help="Power factor of the polynomial scheduler.")
+    parser.add_argument(
+        "--dataloader_num_workers",
+        type=int,
+        default=0,
+        help=(
+            "Number of subprocesses to use for data loading. 0 means that the data will be loaded in the main process."
+        ),
+    )
+    parser.add_argument(
+        "--use_8bit_adam", action="store_true", help="Whether or not to use 8-bit Adam from bitsandbytes."
+    )
+    parser.add_argument("--adam_beta1", type=float, default=0.9, help="The beta1 parameter for the Adam optimizer.")
+    parser.add_argument("--adam_beta2", type=float, default=0.999, help="The beta2 parameter for the Adam optimizer.")
+    parser.add_argument("--adam_weight_decay", type=float, default=1e-2, help="Weight decay to use.")
+    parser.add_argument("--adam_epsilon", type=float, default=1e-08, help="Epsilon value for the Adam optimizer")
+    parser.add_argument("--max_grad_norm", default=1.0, type=float, help="Max gradient norm.")
+    parser.add_argument("--push_to_hub", action="store_true", help="Whether or not to push the model to the Hub.")
+    parser.add_argument("--hub_token", type=str, default=None, help="The token to use to push to the Model Hub.")
+    parser.add_argument(
+        "--hub_model_id",
+        type=str,
+        default=None,
+        help="The name of the repository to keep in sync with the local `output_dir`.",
+    )
+    parser.add_argument(
+        "--logging_dir",
+        type=str,
+        default="logs",
+        help=(
+            "[TensorBoard](https://www.tensorflow.org/tensorboard) log directory. Will default to"
+            " *output_dir/runs/**CURRENT_DATETIME_HOSTNAME***."
+        ),
+    )
+    parser.add_argument(
+        "--allow_tf32",
+        action="store_true",
+        help=(
+            "Whether or not to allow TF32 on Ampere GPUs. Can be used to speed up training. For more information, see"
+            " https://pytorch.org/docs/stable/notes/cuda.html#tensorfloat-32-tf32-on-ampere-devices"
+        ),
+    )
+    parser.add_argument(
+        "--report_to",
+        type=str,
+        default="tensorboard",
+        help=(
+            'The integration to report the results and logs to. Supported platforms are `"tensorboard"`'
+            ' (default), `"wandb"` and `"comet_ml"`. Use `"all"` to report to all integrations.'
+        ),
+    )
+    parser.add_argument(
+        "--mixed_precision",
+        type=str,
+        default=None,
+        choices=["no", "fp16", "bf16"],
+        help=(
+            "Whether to use mixed precision. Choose between fp16 and bf16 (bfloat16). Bf16 requires PyTorch >="
+            " 1.10.and an Nvidia Ampere GPU.  Default to the value of accelerate config of the current system or the"
+            " flag passed with the `accelerate.launch` command. Use this argument to override the accelerate config."
+        ),
+    )
+    parser.add_argument(
+        "--prior_generation_precision",
+        type=str,
+        default=None,
+        choices=["no", "fp32", "fp16", "bf16"],
+        help=(
+            "Choose prior generation precision between fp32, fp16 and bf16 (bfloat16). Bf16 requires PyTorch >="
+            " 1.10.and an Nvidia Ampere GPU.  Default to  fp16 if a GPU is available else fp32."
+        ),
+    )
+    parser.add_argument("--local_rank", type=int, default=-1, help="For distributed training: local_rank")
+    parser.add_argument(
+        "--enable_xformers_memory_efficient_attention", action="store_true", help="Whether or not to use xformers."
+    )
+    parser.add_argument(
+        "--pre_compute_text_embeddings",
+        action="store_true",
+        help="Whether or not to pre-compute text embeddings. If text embeddings are pre-computed, the text encoder will not be kept in memory during training and will leave more GPU memory available for training the rest of the model. This is not compatible with `--train_text_encoder`.",
+    )
+    parser.add_argument(
+        "--tokenizer_max_length",
+        type=int,
+        default=None,
+        required=False,
+        help="The maximum length of the tokenizer. If not set, will default to the tokenizer's max length.",
+    )
+    parser.add_argument(
+        "--text_encoder_use_attention_mask",
+        action="store_true",
+        required=False,
+        help="Whether to use attention mask for the text encoder",
+    )
+    parser.add_argument(
+        "--validation_images",
+        required=False,
+        default=None,
+        nargs="+",
+        help="Optional set of images to use for validation. Used when the target pipeline takes an initial image as input such as when training image variation or superresolution.",
+    )
+    parser.add_argument(
+        "--class_labels_conditioning",
+        required=False,
+        default=None,
+        help="The optional `class_label` conditioning to pass to the unet, available values are `timesteps`.",
+    )
+    parser.add_argument(
+        "--rank",
+        type=int,
+        default=4,
+        help=("The dimension of the LoRA update matrices."),
+    )
+
+    if input_args is not None:
+        args = parser.parse_args(input_args)
+    else:
+        args = parser.parse_args()
+
+    env_local_rank = int(os.environ.get("LOCAL_RANK", -1))
+    if env_local_rank != -1 and env_local_rank != args.local_rank:
+        args.local_rank = env_local_rank
+
+    if args.train_text_encoder and args.pre_compute_text_embeddings:
+        raise ValueError("`--train_text_encoder` cannot be used with `--pre_compute_text_embeddings`")
+
+    return args
+
 
 def main(args):
-    print("Initializing accelerator...", flush=True)
-    if args.report_to == "wandb" and args.hub_token is not None:
-        raise ValueError(
-            "You cannot use both --report_to=wandb and --hub_token due to a security risk of exposing your token."
-            " Please use `huggingface-cli login` to authenticate with the Hub."
-        )
-
     logging_dir = Path(args.output_dir, args.logging_dir)
 
     accelerator_project_config = ProjectConfiguration(project_dir=args.output_dir, logging_dir=logging_dir)
@@ -292,18 +597,11 @@ def main(args):
         log_with=args.report_to,
         project_config=accelerator_project_config,
     )
-    print("Accelerator initialized.", flush=True)
+
     # Disable AMP for MPS.
     if torch.backends.mps.is_available():
         accelerator.native_amp = False
 
-    if args.report_to == "wandb":
-        if not is_wandb_available():
-            raise ImportError("Make sure to install wandb if you want to use it for logging during training.")
-
-    # Currently, it's not possible to do gradient accumulation when training two models with accelerate.accumulate
-    # This will be enabled soon in accelerate. For now, we don't allow gradient accumulation when training two models.
-    # TODO (sayakpaul): Remove this check when gradient accumulation with two models is enabled in accelerate.
     if args.train_text_encoder and args.gradient_accumulation_steps > 1 and accelerator.num_processes > 1:
         raise ValueError(
             "Gradient accumulation is not supported when training the text encoder in distributed training. "
@@ -360,14 +658,14 @@ def main(args):
     pipeline.set_progress_bar_config(disable=True)
     pipeline.to(accelerator.device)
     
-    shutil.rmtree(class_images_dir, ignore_errors=True)
     logger.info(f"Generating training images.")
     if num_generated_folders < num_prompts:
         for prompt in tqdm(generated_prompts, desc="Generating sample images", disable=IS_STDOUT):
             print(f"Prompt = {prompt}")
             images = []
-            for _ in range(args.num_validation_images):
-                with torch.cuda.amp.autocast():
+            for _ in range(4):
+            # for _ in range(args.num_validation_images):
+                with torch.no_grad():
                     image = pipeline(prompt).images[0]
                     images.append(image)
 
@@ -476,19 +774,6 @@ def main(args):
         vae.to(accelerator.device, dtype=weight_dtype)
     text_encoder.to(accelerator.device, dtype=weight_dtype)
 
-    if args.enable_xformers_memory_efficient_attention:
-        if is_xformers_available():
-            import xformers
-
-            xformers_version = version.parse(xformers.__version__)
-            if xformers_version == version.parse("0.0.16"):
-                logger.warning(
-                    "xFormers 0.0.16 cannot be used for training in some GPUs. If you observe problems during training, please update xFormers to at least 0.0.17. See https://huggingface.co/docs/diffusers/main/en/optimization/xformers for more details."
-                )
-            unet.enable_xformers_memory_efficient_attention()
-        else:
-            raise ValueError("xformers is not available. Make sure it is installed correctly")
-
     if args.gradient_checkpointing:
         unet.enable_gradient_checkpointing()
         if args.train_text_encoder:
@@ -564,18 +849,7 @@ def main(args):
         # only upcast trainable parameters (LoRA) into fp32
         cast_training_params(models, dtype=torch.float32)
 
-    # Use 8-bit Adam for lower memory usage or to fine-tune the model in 16GB GPUs
-    if args.use_8bit_adam:
-        try:
-            import bitsandbytes as bnb
-        except ImportError:
-            raise ImportError(
-                "To use 8-bit Adam, please install the bitsandbytes library: `pip install bitsandbytes`."
-            )
-
-        optimizer_class = bnb.optim.AdamW8bit
-    else:
-        optimizer_class = torch.optim.AdamW
+    optimizer_class = torch.optim.AdamW
 
     # Optimizer creation
     params_to_optimize = (
@@ -690,18 +964,10 @@ def main(args):
         args,
         accelerator,
         unet,
+        global_step,
     ):
         reward_list = []
         pipeline.unet = unwrap_model(unet)
-        # ----------------------- Load scheduler ----------------------- #
-        scheduler_args = {}
-        if "variance_type" in pipeline.scheduler.config:
-            variance_type = pipeline.scheduler.config.variance_type
-
-            if variance_type in ["learned", "learned_range"]:
-                variance_type = "fixed_small"
-            
-            scheduler_args["variance_type"] = variance_type
 
         validation_path = f"logs/validation_images/rpo/{args.subject}/"
         os.makedirs(validation_path, exist_ok=True)
@@ -719,7 +985,7 @@ def main(args):
             
             # ----------------------- Evaluation ----------------------- #
             for i, image in enumerate(images):
-                image_filename = validation_path + f"{prompt}-{i}.jpg"
+                image_filename = validation_path + f"{prompt}-{i}-{global_step}.jpg"
                 image.save(image_filename)
             clean_test_prompt = remove_unique_token(prompt, "[V]")
             reward = reward_model.get_reward(images, [clean_test_prompt] * len(images), lambda_=args.reward_lambda)
@@ -893,9 +1159,9 @@ def main(args):
             accelerator.wait_for_everyone()
             if accelerator.is_main_process:
                 if global_step % args.validation_step == 0:
-                    reward = validation(args, accelerator, unet)
+                    reward = validation(args, accelerator, unet, global_step)
                     rewards_history.append(reward)
-                    logger.info(f"Validation reward: {reward:.3f}")
+                    logger.info(f"Global step: {global_step}, Validation reward: {reward:.3f}")
                     if reward > max_reward:
                         shutil.rmtree(save_path)
                         os.makedirs(save_path)
@@ -909,21 +1175,6 @@ def main(args):
         
 
     accelerator.wait_for_everyone()
-    # Save rewards history
-    # reward_list = [float(x) for x in rewards_history]
-    # file_dir = f"logs/results/rpo_lora/"
-    # os.makedirs(file_dir, exist_ok=True)
-    # reward_path = file_dir + f"{args.subject}_rewards_history.json"
-    # with open(reward_path, "w") as f:
-    #     json.dump(reward_list, f)
-    # upload_file_to_gcs(
-    #     reward_path, 
-    #     args.bucket, 
-    #     f"lambda={args.reward_lambda}/experiments/rpo_lora/{subject}_rewards_history.json")
-    pipeline.unet = unwrap_model(unet)
-    # if accelerator.is_main_process:
-    #     evaluation(pipeline, args, accelerator)
-    shutil.rmtree(class_images_dir)
     shutil.rmtree("logs/validation_images")
     accelerator.end_training()
 
