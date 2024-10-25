@@ -1,0 +1,4 @@
+*.sh
+*.txt
+__pycache__/
+logs/
