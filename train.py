@@ -149,7 +149,7 @@ def evaluation(
     ):
         images = []
         # ----------------------- Inference ----------------------- #
-        local_path = f"logs/sampled_images/rpo_lora/{args.subject}/"
+        local_path = f"logs/sampled_images/rpo/{args.subject}/"
         os.makedirs(local_path, exist_ok=True)
         pipeline_args = {"prompt": test_prompt}
         for _ in range(args.num_validation_images):
@@ -661,9 +661,8 @@ def main(args):
     logger.info(f"Generating training images.")
     if num_generated_folders < num_prompts:
         for prompt in tqdm(generated_prompts, desc="Generating sample images", disable=IS_STDOUT):
-            print(f"Prompt = {prompt}")
             images = []
-            for _ in range(4):
+            for _ in range(16):
             # for _ in range(args.num_validation_images):
                 with torch.no_grad():
                     image = pipeline(prompt).images[0]
@@ -959,7 +958,7 @@ def main(args):
         accelerator.init_trackers("rpo", config=tracker_config)
 
     # Validation
-    validate_prompts = validation_prompts("[V]", args.class_token)
+    validate_prompts = training_prompts("[V]", args.class_token, live)
     def validation(
         args,
         accelerator,
@@ -1175,7 +1174,8 @@ def main(args):
         
 
     accelerator.wait_for_everyone()
-    shutil.rmtree("logs/validation_images")
+    shutil.rmtree(class_images_dir)
+    # shutil.rmtree("logs/validation_images")
     accelerator.end_training()
 
 
