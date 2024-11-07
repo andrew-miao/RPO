@@ -36,8 +36,6 @@ from accelerate.utils import ProjectConfiguration, set_seed
 from huggingface_hub import create_repo, upload_folder
 from huggingface_hub.utils import insecure_hashlib
 from packaging import version
-from peft import LoraConfig
-from peft.utils import get_peft_model_state_dict, set_peft_model_state_dict
 from PIL import Image
 from PIL.ImageOps import exif_transpose
 from torch.utils.data import Dataset
@@ -65,7 +63,6 @@ from utils import (
     remove_unique_token, 
     clean_subject, 
     training_prompts,
-    validation_prompts,
 )
 from evaluation_metrics import DINO_score, CLIP_I_score, CLIP_T_score, RewardModel
 from datasets_utils import PreferenceDataset
@@ -195,6 +192,7 @@ def import_model_class_from_model_name_or_path(pretrained_model_name_or_path: st
         pretrained_model_name_or_path,
         subfolder="text_encoder",
         revision=revision,
+        cache_dir=args.cache_dir,
     )
     model_class = text_encoder_config.architectures[0]
 
@@ -292,7 +290,7 @@ def rpo_sd_args(parser, input_args=None):
         help="A folder containing the training data of generated images.",
     )
     parser.add_argument(
-        "--reference_prompt",
+        "--prompt",
         type=str,
         default=None,
         required=True,
@@ -400,6 +398,12 @@ def rpo_sd_args(parser, input_args=None):
         type=int,
         default=None,
         help="Total number of training steps to perform.  If provided, overrides num_train_epochs.",
+    )
+    parser.add_argument(
+        "--cache_dir",
+        type=str,
+        default=None,
+        help="Directory to store the cache for the diffusers/transformers library.",
     )
     parser.add_argument(
         "--checkpoints_total_limit",
@@ -564,24 +568,11 @@ def rpo_sd_args(parser, input_args=None):
         default=None,
         help="The optional `class_label` conditioning to pass to the unet, available values are `timesteps`.",
     )
-    parser.add_argument(
-        "--rank",
-        type=int,
-        default=4,
-        help=("The dimension of the LoRA update matrices."),
-    )
 
     if input_args is not None:
         args = parser.parse_args(input_args)
     else:
         args = parser.parse_args()
-
-    env_local_rank = int(os.environ.get("LOCAL_RANK", -1))
-    if env_local_rank != -1 and env_local_rank != args.local_rank:
-        args.local_rank = env_local_rank
-
-    if args.train_text_encoder and args.pre_compute_text_embeddings:
-        raise ValueError("`--train_text_encoder` cannot be used with `--pre_compute_text_embeddings`")
 
     return args
 
@@ -602,11 +593,8 @@ def main(args):
     if torch.backends.mps.is_available():
         accelerator.native_amp = False
 
-    if args.train_text_encoder and args.gradient_accumulation_steps > 1 and accelerator.num_processes > 1:
-        raise ValueError(
-            "Gradient accumulation is not supported when training the text encoder in distributed training. "
-            "Please set gradient_accumulation_steps to 1. This feature will be supported in the future."
-        )
+    if not os.path.exists(args.cache_dir):
+        os.makedirs(args.cache_dir)
 
     # Make one log on every process with the configuration for debugging.
     logging.basicConfig(
@@ -625,7 +613,7 @@ def main(args):
     # If passed along, set the training seed now.
     if args.seed is not None:
         set_seed(args.seed)
-    print("Generating sample images...", flush=True)
+    logger.info("Generating sample images...")
 
     # -------------------------- Generate sample images from the pretrained model -------------------------- #
     class_images_dir = Path(args.generated_data_dir)
@@ -654,6 +642,7 @@ def main(args):
                 safety_checker=None,
                 revision=args.revision,
                 variant=args.variant,
+                cache_dir=args.cache_dir,
             )
     pipeline.set_progress_bar_config(disable=True)
     pipeline.to(accelerator.device)
@@ -689,13 +678,14 @@ def main(args):
 
     # Load the tokenizer
     if args.tokenizer_name:
-        tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_name, revision=args.revision, use_fast=False)
+        tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_name, revision=args.revision, use_fast=False, cache_dir=args.cache_dir)
     elif args.pretrained_model_name_or_path:
         tokenizer = AutoTokenizer.from_pretrained(
             args.pretrained_model_name_or_path,
             subfolder="tokenizer",
             revision=args.revision,
             use_fast=False,
+            cache_dir=args.cache_dir,
         )
 
 
@@ -731,13 +721,13 @@ def main(args):
     text_encoder_cls = import_model_class_from_model_name_or_path(args.pretrained_model_name_or_path, args.revision)
 
     # Load scheduler and models
-    noise_scheduler = DDPMScheduler.from_pretrained(args.pretrained_model_name_or_path, subfolder="scheduler")
+    noise_scheduler = DDPMScheduler.from_pretrained(args.pretrained_model_name_or_path, subfolder="scheduler", cache_dir=args.cache_dir,)
     text_encoder = text_encoder_cls.from_pretrained(
-        args.pretrained_model_name_or_path, subfolder="text_encoder", revision=args.revision, variant=args.variant
+        args.pretrained_model_name_or_path, subfolder="text_encoder", revision=args.revision, variant=args.variant, cache_dir=args.cache_dir,
     )
     try:
         vae = AutoencoderKL.from_pretrained(
-            args.pretrained_model_name_or_path, subfolder="vae", revision=args.revision, variant=args.variant
+            args.pretrained_model_name_or_path, subfolder="vae", revision=args.revision, variant=args.variant, cache_dir=args.cache_dir,
         )
     except OSError:
         # IF does not have a VAE so let's just set it to None
@@ -745,25 +735,21 @@ def main(args):
         vae = None
 
     unet = UNet2DConditionModel.from_pretrained(
-        args.pretrained_model_name_or_path, subfolder="unet", revision=args.revision, variant=args.variant
+        args.pretrained_model_name_or_path, subfolder="unet", revision=args.revision, variant=args.variant, cache_dir=args.cache_dir,
     )
     ref_unet = UNet2DConditionModel.from_pretrained(
-        args.pretrained_model_name_or_path, subfolder="unet", revision=args.revision, variant=args.variant
+        args.pretrained_model_name_or_path, subfolder="unet", revision=args.revision, variant=args.variant, cache_dir=args.cache_dir,
     )
     
-    # For mixed precision training we cast all non-trainable weights (vae, non-lora text_encoder and non-lora unet) to half-precision
-    # as these weights are only used for inference, keeping weights in full precision is not required.
     weight_dtype = torch.float32
     if accelerator.mixed_precision == "fp16":
         weight_dtype = torch.float16
     elif accelerator.mixed_precision == "bf16":
         weight_dtype = torch.bfloat16
 
-    # We only train the additional adapter LoRA layers
     if vae is not None:
         vae.requires_grad_(False)
     text_encoder.requires_grad_(False)
-    # unet.requires_grad_(False)
     ref_unet.requires_grad_(False)
     ref_unet.to(accelerator.device, dtype=weight_dtype)
 
@@ -775,18 +761,6 @@ def main(args):
 
     if args.gradient_checkpointing:
         unet.enable_gradient_checkpointing()
-        if args.train_text_encoder:
-            text_encoder.gradient_checkpointing_enable()
-
-    # The text encoder comes from 🤗 transformers, we will also attach adapters to it.
-    if args.train_text_encoder:
-        text_lora_config = LoraConfig(
-            r=args.rank,
-            lora_alpha=args.rank,
-            init_lora_weights="gaussian",
-            target_modules=["q_proj", "k_proj", "v_proj", "out_proj"],
-        )
-        text_encoder.add_adapter(text_lora_config)
 
     def unwrap_model(model):
         model = accelerator.unwrap_model(model)
@@ -816,11 +790,11 @@ def main(args):
 
             if isinstance(model, type(unwrap_model(text_encoder))):
                 # load transformers style into model
-                load_model = text_encoder_cls.from_pretrained(input_dir, subfolder="text_encoder")
+                load_model = text_encoder_cls.from_pretrained(input_dir, subfolder="text_encoder", cache_dir=args.cache_dir)
                 model.config = load_model.config
             else:
                 # load diffusers style into model
-                load_model = UNet2DConditionModel.from_pretrained(input_dir, subfolder="unet")
+                load_model = UNet2DConditionModel.from_pretrained(input_dir, subfolder="unet", cache_dir=args.cache_dir)
                 model.register_to_config(**load_model.config)
 
             model.load_state_dict(load_model.state_dict())
@@ -877,35 +851,17 @@ def main(args):
 
             return prompt_embeds
 
-        pre_computed_encoder_hidden_states = compute_text_embeddings(args.reference_prompt)
-        validation_prompt_negative_prompt_embeds = compute_text_embeddings("")
-
-        if args.validation_prompt is not None:
-            validation_prompt_encoder_hidden_states = compute_text_embeddings(args.validation_prompt)
-        else:
-            validation_prompt_encoder_hidden_states = None
-
-        if args.class_prompt is not None:
-            pre_computed_class_prompt_encoder_hidden_states = compute_text_embeddings(args.class_prompt)
-        else:
-            pre_computed_class_prompt_encoder_hidden_states = None
-
         text_encoder = None
         tokenizer = None
 
         gc.collect()
         torch.cuda.empty_cache()
-    else:
-        pre_computed_encoder_hidden_states = None
-        validation_prompt_encoder_hidden_states = None
-        validation_prompt_negative_prompt_embeds = None
-        pre_computed_class_prompt_encoder_hidden_states = None
 
     # Dataset and DataLoaders creation
     train_dataset = PreferenceDataset(
         reference_data_root=args.reference_data_dir,
         generated_data_root=args.generated_data_dir,
-        prompt=args.reference_prompt,
+        prompt=args.prompt,
         desc_prompts=generated_prompts,
         tokenizer=tokenizer,
         size=args.resolution,

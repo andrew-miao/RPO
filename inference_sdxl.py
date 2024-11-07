@@ -27,14 +27,14 @@ def inference(pipeline, prompt, save_dir, seed, num_inference_images=4):
         with distributed_state.split_between_processes([prompt] * ngpus) as prompt:
             image = pipeline(prompt=prompt, generator=generator).images[0]
             hash_image = insecure_hashlib.sha1(image.tobytes()).hexdigest()
-            image_filename = save_dir + f"{hash_image}.jpg"
+            image_filename = save_dir + f"{prompt}" + f"{hash_image}.jpg"
             image.save(image_filename)
     else:
         for _ in range(num_inference_images):
             with torch.no_grad():
                 image = pipeline(prompt=prompt, generator=generator).images[0]
                 hash_image = insecure_hashlib.sha1(image.tobytes()).hexdigest()
-                image_filename = save_dir + f"{hash_image}.jpg"
+                image_filename = save_dir + f"{prompt}" + f"{hash_image}.jpg"
                 image.save(image_filename)
 
 def parse_args():
@@ -73,6 +73,12 @@ def parse_args():
             " resolution"
         ),
     )
+    parser.add_argument(
+        "--save_dir",
+        type=str,
+        default="logs/inference/rpo_sdxl/inference/",
+        help="The directory to save the generated images",
+    )
 
     args = parser.parse_args()
     return args
@@ -81,7 +87,7 @@ def main(args):
     prompt = args.prompt
 
     pipeline = load_pipeline(args.pretrained_model_name_or_path)
-    save_dir = f"logs/inference/rpo_sdxl/{args.subject}/{prompt}/"
+    save_dir = args.save_dir + f"{args.subject}/"
     os.makedirs(save_dir, exist_ok=True)
     inference(pipeline, prompt, save_dir, args.seed, args.num_inference_images)
     print(f"Inference images saved to {save_dir}")

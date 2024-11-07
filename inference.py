@@ -30,7 +30,7 @@ def parallel_inference(pipeline, prompt, save_dir):
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Run inference on a prompt using a Stable Diffusion model.")
-    parser.add_argument("--pretrained_model_path", type=str, default="logs/path-to-save-model/rpo", help="The path of the pretrained model.")
+    parser.add_argument("--pretrained_model_name_or_path", type=str, default="logs/path-to-save-model/rpo", help="The path of the pretrained model.")
     parser.add_argument("--prompt", type=str, default="a photo of a [V] dog", help="The prompt to generate the image.")
     parser.add_argument("--seed", type=int, default=0, help="A seed for reproducible inference.")
     parser.add_argument("--save_dir", type=str, default="logs/inference/dog", help="The directory to save the generated images.")

@@ -51,7 +51,7 @@ def import_model_class_from_model_name_or_path(
     pretrained_model_name_or_path: str, revision: str, subfolder: str = "text_encoder"
 ):
     text_encoder_config = PretrainedConfig.from_pretrained(
-        pretrained_model_name_or_path, subfolder=subfolder, revision=revision
+        pretrained_model_name_or_path, subfolder=subfolder, revision=revision, cache_dir=args.cache_dir
     )
     model_class = text_encoder_config.architectures[0]
 
@@ -74,6 +74,7 @@ def parse_args(input_args=None):
     parser.add_argument("--pretrained_vae_model_name_or_path", type=str, default="madebyollin/sdxl-vae-fp16-fix")
     parser.add_argument("--revision", type=str, default=None)
     parser.add_argument("--variant", type=str, default=None)
+    parser.add_argument("--cache_dir", type=str, default=None, help="Where to store the pre-trained models downloaded from Hugging Face.")
     # data config
     parser.add_argument("--config_dir", type=str, default="")
     parser.add_argument("--config_name", type=str, default="")
@@ -475,6 +476,7 @@ def main(args):
         torch_dtype=torch_dtype,
         revision=args.revision,
         variant=args.variant,
+        cache_dir=args.cache_dir,
     )
     pipeline.set_progress_bar_config(disable=True)
 
@@ -532,6 +534,7 @@ def main(args):
         revision=args.revision,
         variant=args.variant,
         use_fast=False,
+        cache_dir=args.cache_dir,
     )
     tokenizer_two = AutoTokenizer.from_pretrained(
         args.pretrained_model_name_or_path,
@@ -539,6 +542,7 @@ def main(args):
         revision=args.revision,
         variant=args.variant,
         use_fast=False,
+        cache_dir=args.cache_dir,
     )
 
     # import correct text encoder classes
@@ -550,12 +554,12 @@ def main(args):
     )
 
     # Load scheduler and models
-    noise_scheduler = DDPMScheduler.from_pretrained(args.pretrained_model_name_or_path, subfolder="scheduler")    
+    noise_scheduler = DDPMScheduler.from_pretrained(args.pretrained_model_name_or_path, subfolder="scheduler", cache_dir=args.cache_dir,)    
     text_encoder_one = text_encoder_cls_one.from_pretrained(
-        args.pretrained_model_name_or_path, subfolder="text_encoder", revision=args.revision, variant=args.variant
+        args.pretrained_model_name_or_path, subfolder="text_encoder", revision=args.revision, variant=args.variant, cache_dir=args.cache_dir,
     )
     text_encoder_two = text_encoder_cls_two.from_pretrained(
-        args.pretrained_model_name_or_path, subfolder="text_encoder_2", revision=args.revision, variant=args.variant
+        args.pretrained_model_name_or_path, subfolder="text_encoder_2", revision=args.revision, variant=args.variant, cache_dir=args.cache_dir,
     )
     vae_path = (
         args.pretrained_model_name_or_path
@@ -567,13 +571,14 @@ def main(args):
         subfolder="vae" if args.pretrained_vae_model_name_or_path is None else None,
         revision=args.revision,
         variant=args.variant,
+        cache_dir=args.cache_dir,
     )
     vae_scaling_factor = vae.config.scaling_factor
     unet = UNet2DConditionModel.from_pretrained(
-        args.pretrained_model_name_or_path, subfolder="unet", revision=args.revision, variant=args.variant
+        args.pretrained_model_name_or_path, subfolder="unet", revision=args.revision, variant=args.variant, cache_dir=args.cache_dir,
     )
     ref_unet = UNet2DConditionModel.from_pretrained(
-        args.pretrained_model_name_or_path, subfolder="unet", revision=args.revision, variant=args.variant
+        args.pretrained_model_name_or_path, subfolder="unet", revision=args.revision, variant=args.variant, cache_dir=args.cache_dir,
     )
     ref_unet.requires_grad_(False)
 
@@ -1130,12 +1135,14 @@ def main(args):
                         subfolder="text_encoder",
                         revision=args.revision,
                         variant=args.variant,
+                        cache_dir=args.cache_dir,
                     )
                     text_encoder_two = text_encoder_cls_two.from_pretrained(
                         args.pretrained_model_name_or_path,
                         subfolder="text_encoder_2",
                         revision=args.revision,
                         variant=args.variant,
+                        cache_dir=args.cache_dir,
                     )
                 pipeline = StableDiffusionXLPipeline.from_pretrained(
                     args.pretrained_model_name_or_path,
@@ -1146,6 +1153,7 @@ def main(args):
                     revision=args.revision,
                     variant=args.variant,
                     torch_dtype=weight_dtype,
+                    cache_dir=args.cache_dir,
                 )
 
                 # We train on the simplified learning objective. If we were previously predicting a variance, we need the scheduler to ignore it
@@ -1220,6 +1228,7 @@ def main(args):
                 revision=args.revision,
                 variant=args.variant,
                 torch_dtype=weight_dtype,
+                cache_dir=args.cache_dir,
             )
             pipeline = StableDiffusionXLPipeline.from_pretrained(
                 args.pretrained_model_name_or_path,
@@ -1227,6 +1236,7 @@ def main(args):
                 revision=args.revision,
                 variant=args.variant,
                 torch_dtype=weight_dtype,
+                cache_dir=args.cache_dir,
             )
 
             # We train on the simplified learning objective. If we were previously predicting a variance, we need the scheduler to ignore it

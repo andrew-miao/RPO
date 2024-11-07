@@ -1,0 +1,26 @@
+The following values were not passed to `accelerate launch` and had defaults used instead:
+	`--num_processes` was set to a value of `1`
+	`--num_machines` was set to a value of `1`
+	`--mixed_precision` was set to a value of `'no'`
+	`--dynamo_backend` was set to a value of `'no'`
+To avoid this warning pass in values for each of the problematic parameters or run `accelerate config`.
+Traceback (most recent call last):
+  File "/fs01/home/yanting/RPO/inference.py", line 76, in <module>
+    main(args)
+  File "/fs01/home/yanting/RPO/inference.py", line 63, in main
+    pipeline = StableDiffusionPipeline.from_pretrained(args.pretrained_model_path, torch_dtype=weight_dtype)
+  File "/h/yanting/anaconda3/envs/rpo-cuda/lib/python3.10/site-packages/huggingface_hub/utils/_validators.py", line 114, in _inner_fn
+    return fn(*args, **kwargs)
+  File "/h/yanting/anaconda3/envs/rpo-cuda/lib/python3.10/site-packages/diffusers/pipelines/pipeline_utils.py", line 695, in from_pretrained
+    raise ValueError(
+ValueError: The provided pretrained_model_name_or_path "/scratch/ssd004/scratch/yanting/rpo_sdxl/logs/path-to-save-model/sdxl_results" is neither a valid local path nor a valid repo id. Please check the parameter.
+Traceback (most recent call last):
+  File "/h/yanting/anaconda3/envs/rpo-cuda/bin/accelerate", line 8, in <module>
+    sys.exit(main())
+  File "/h/yanting/anaconda3/envs/rpo-cuda/lib/python3.10/site-packages/accelerate/commands/accelerate_cli.py", line 48, in main
+    args.func(args)
+  File "/h/yanting/anaconda3/envs/rpo-cuda/lib/python3.10/site-packages/accelerate/commands/launch.py", line 1168, in launch_command
+    simple_launcher(args)
+  File "/h/yanting/anaconda3/envs/rpo-cuda/lib/python3.10/site-packages/accelerate/commands/launch.py", line 763, in simple_launcher
+    raise subprocess.CalledProcessError(returncode=process.returncode, cmd=cmd)
+subprocess.CalledProcessError: Command '['/h/yanting/anaconda3/envs/rpo-cuda/bin/python', 'inference.py', '--pretrained_model_path=/scratch/ssd004/scratch/yanting/rpo_sdxl/logs/path-to-save-model/sdxl_results', '--save_dir=/scratch/ssd004/scratch/yanting/logs/rpo_sdxl/inference/dog', '--prompt=a [V] dog wearing a green sunglasses', '--seed=0']' returned non-zero exit status 1.
