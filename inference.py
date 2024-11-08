@@ -6,16 +6,27 @@ from accelerate import PartialState
 from diffusers import StableDiffusionPipeline
 
 def inference(pipeline, prompt, save_dir, args):
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    pipeline.to(device)
+    ngpus = torch.cuda.device_count()
     generator = torch.torch.Generator(device="cuda")
     generator.manual_seed(args.seed)
-    for _ in range(16):
-        with torch.no_grad():
-            image = pipeline(prompt, generator=generator).images[0]
+
+    if ngpus > 1:
+        distributed_state = PartialState()
+        with distributed_state.split_between_processes([prompt] * ngpus) as prompt:
+            image = pipeline(prompt=prompt, generator=generator).images[0]
             hash_image = insecure_hashlib.sha1(image.tobytes()).hexdigest()
             image_filename = os.path.join(save_dir, f"{prompt}-{hash_image}.png")
             image.save(image_filename)
+
+    else:
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        pipeline.to(device)
+        for _ in range(args.num_inference_images):
+            with torch.no_grad():
+                image = pipeline(prompt, generator=generator).images[0]
+                hash_image = insecure_hashlib.sha1(image.tobytes()).hexdigest()
+                image_filename = os.path.join(save_dir, f"{prompt}-{hash_image}.png")
+                image.save(image_filename)
 
 def parallel_inference(pipeline, prompt, save_dir):
     distributed_state = PartialState()
@@ -33,6 +44,7 @@ def parse_args():
     parser.add_argument("--pretrained_model_name_or_path", type=str, default="logs/path-to-save-model/rpo", help="The path of the pretrained model.")
     parser.add_argument("--prompt", type=str, default="a photo of a [V] dog", help="The prompt to generate the image.")
     parser.add_argument("--seed", type=int, default=0, help="A seed for reproducible inference.")
+    parser.add_argument("--num_inference_images", type=int, default=16, help="The number of images to generate for each prompt.")
     parser.add_argument("--save_dir", type=str, default="logs/inference/dog", help="The directory to save the generated images.")
     parser.add_argument(
         "--mixed_precision",
@@ -60,7 +72,7 @@ def main(args):
     elif args.mixed_precision == "bf16":
         weight_dtype = torch.bfloat16
 
-    pipeline = StableDiffusionPipeline.from_pretrained(args.pretrained_model_path, torch_dtype=weight_dtype)
+    pipeline = StableDiffusionPipeline.from_pretrained(args.pretrained_model_name_or_path, torch_dtype=weight_dtype)
 
     print("Pipeline loaded", flush=True)
     print("Starting inference...", flush=True)

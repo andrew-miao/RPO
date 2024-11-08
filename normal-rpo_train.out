@@ -4,10 +4,10 @@ The following values were not passed to `accelerate launch` and had defaults use
 	`--mixed_precision` was set to a value of `'no'`
 	`--dynamo_backend` was set to a value of `'no'`
 To avoid this warning pass in values for each of the problematic parameters or run `accelerate config`.
-/h/yanting/anaconda3/envs/rpo-cuda/lib/python3.10/site-packages/accelerate/accelerator.py:443: UserWarning: `log_with=tensorboard` was passed but no supported trackers are currently installed.
+/h/yanting/anaconda3/envs/test/lib/python3.10/site-packages/accelerate/accelerator.py:443: UserWarning: `log_with=tensorboard` was passed but no supported trackers are currently installed.
   warnings.warn(f"`log_with={log_with}` was passed but no supported trackers are currently installed.")
 Detected kernel version 5.4.0, which is below the recommended minimum of 5.5.0; this can cause the process to hang. It is recommended to upgrade the kernel to the minimum version or higher.
-11/05/2024 21:24:52 - INFO - __main__ - Distributed environment: NO
+11/07/2024 17:33:58 - INFO - __main__ - Distributed environment: NO
 Num processes: 1
 Process index: 0
 Local process index: 0
@@ -15,84 +15,83 @@ Device: cuda
 
 Mixed precision type: no
 
-11/05/2024 21:24:52 - INFO - __main__ - Generating sample images...
-Fetching 13 files:   0%|          | 0/13 [00:00<?, ?it/s]Fetching 13 files:  38%|███▊      | 5/13 [00:00<00:00, 37.44it/s]Fetching 13 files:  85%|████████▍ | 11/13 [00:11<00:02,  1.21s/it]Fetching 13 files: 100%|██████████| 13/13 [00:11<00:00,  1.12it/s]
+11/07/2024 17:33:58 - INFO - __main__ - Generating sample images...
 {'image_encoder'} was not found in config. Values will be initialized to default values.
-Loading pipeline components...:   0%|          | 0/6 [00:00<?, ?it/s]{'use_post_quant_conv', 'force_upcast', 'mid_block_add_attention', 'latents_mean', 'scaling_factor', 'use_quant_conv', 'latents_std', 'shift_factor'} was not found in config. Values will be initialized to default values.
-Loaded vae as AutoencoderKL from `vae` subfolder of stabilityai/stable-diffusion-2-1.
-Loading pipeline components...:  17%|█▋        | 1/6 [00:00<00:04,  1.19it/s]{'timestep_post_act', 'resnet_skip_time_act', 'encoder_hid_dim_type', 'conv_in_kernel', 'resnet_out_scale_factor', 'time_embedding_dim', 'addition_embed_type_num_heads', 'resnet_time_scale_shift', 'reverse_transformer_layers_per_block', 'time_embedding_act_fn', 'num_attention_heads', 'conv_out_kernel', 'addition_embed_type', 'addition_time_embed_dim', 'time_embedding_type', 'class_embed_type', 'mid_block_type', 'time_cond_proj_dim', 'encoder_hid_dim', 'cross_attention_norm', 'class_embeddings_concat', 'dropout', 'transformer_layers_per_block', 'mid_block_only_cross_attention', 'attention_type', 'projection_class_embeddings_input_dim'} was not found in config. Values will be initialized to default values.
+Loading pipeline components...:   0%|          | 0/6 [00:00<?, ?it/s]Loaded feature_extractor as CLIPImageProcessor from `feature_extractor` subfolder of stabilityai/stable-diffusion-2-1.
+{'resnet_out_scale_factor', 'conv_in_kernel', 'addition_time_embed_dim', 'reverse_transformer_layers_per_block', 'cross_attention_norm', 'resnet_time_scale_shift', 'resnet_skip_time_act', 'time_embedding_act_fn', 'addition_embed_type', 'timestep_post_act', 'time_embedding_type', 'mid_block_only_cross_attention', 'projection_class_embeddings_input_dim', 'encoder_hid_dim_type', 'encoder_hid_dim', 'time_cond_proj_dim', 'addition_embed_type_num_heads', 'time_embedding_dim', 'class_embed_type', 'dropout', 'mid_block_type', 'class_embeddings_concat', 'transformer_layers_per_block', 'num_attention_heads', 'conv_out_kernel', 'attention_type'} was not found in config. Values will be initialized to default values.
 Loaded unet as UNet2DConditionModel from `unet` subfolder of stabilityai/stable-diffusion-2-1.
-Loading pipeline components...:  33%|███▎      | 2/6 [00:08<00:18,  4.60s/it]{'rescale_betas_zero_snr', 'dynamic_thresholding_ratio', 'timestep_spacing', 'thresholding', 'clip_sample_range', 'sample_max_value'} was not found in config. Values will be initialized to default values.
+Loading pipeline components...:  33%|███▎      | 2/6 [00:05<00:11,  2.84s/it]Loaded text_encoder as CLIPTextModel from `text_encoder` subfolder of stabilityai/stable-diffusion-2-1.
+Loading pipeline components...:  50%|█████     | 3/6 [00:08<00:07,  2.65s/it]{'dynamic_thresholding_ratio', 'timestep_spacing', 'sample_max_value', 'clip_sample_range', 'thresholding', 'rescale_betas_zero_snr'} was not found in config. Values will be initialized to default values.
 Loaded scheduler as DDIMScheduler from `scheduler` subfolder of stabilityai/stable-diffusion-2-1.
-Loaded feature_extractor as CLIPImageProcessor from `feature_extractor` subfolder of stabilityai/stable-diffusion-2-1.
-Loaded text_encoder as CLIPTextModel from `text_encoder` subfolder of stabilityai/stable-diffusion-2-1.
-Loading pipeline components...:  83%|████████▎ | 5/6 [00:11<00:02,  2.04s/it]Loaded tokenizer as CLIPTokenizer from `tokenizer` subfolder of stabilityai/stable-diffusion-2-1.
-Loading pipeline components...: 100%|██████████| 6/6 [00:11<00:00,  1.88s/it]
-11/05/2024 21:25:18 - INFO - __main__ - Generating training images.
+{'latents_std', 'shift_factor', 'mid_block_add_attention', 'scaling_factor', 'latents_mean', 'use_post_quant_conv', 'force_upcast', 'use_quant_conv'} was not found in config. Values will be initialized to default values.
+Loaded vae as AutoencoderKL from `vae` subfolder of stabilityai/stable-diffusion-2-1.
+Loading pipeline components...:  83%|████████▎ | 5/6 [00:08<00:01,  1.39s/it]Loaded tokenizer as CLIPTokenizer from `tokenizer` subfolder of stabilityai/stable-diffusion-2-1.
+Loading pipeline components...: 100%|██████████| 6/6 [00:08<00:00,  1.47s/it]
+11/07/2024 17:34:10 - INFO - __main__ - Generating training images.
 You are using a model of type clip_text_model to instantiate a model of type . This is not supported for all configurations of models and can yield errors.
-{'rescale_betas_zero_snr', 'dynamic_thresholding_ratio', 'variance_type', 'timestep_spacing', 'thresholding', 'clip_sample_range', 'sample_max_value'} was not found in config. Values will be initialized to default values.
-{'use_post_quant_conv', 'force_upcast', 'mid_block_add_attention', 'latents_mean', 'scaling_factor', 'use_quant_conv', 'latents_std', 'shift_factor'} was not found in config. Values will be initialized to default values.
-{'timestep_post_act', 'resnet_skip_time_act', 'encoder_hid_dim_type', 'conv_in_kernel', 'resnet_out_scale_factor', 'time_embedding_dim', 'addition_embed_type_num_heads', 'resnet_time_scale_shift', 'reverse_transformer_layers_per_block', 'time_embedding_act_fn', 'num_attention_heads', 'conv_out_kernel', 'addition_embed_type', 'addition_time_embed_dim', 'time_embedding_type', 'class_embed_type', 'mid_block_type', 'time_cond_proj_dim', 'encoder_hid_dim', 'cross_attention_norm', 'class_embeddings_concat', 'dropout', 'transformer_layers_per_block', 'mid_block_only_cross_attention', 'attention_type', 'projection_class_embeddings_input_dim'} was not found in config. Values will be initialized to default values.
-{'timestep_post_act', 'resnet_skip_time_act', 'encoder_hid_dim_type', 'conv_in_kernel', 'resnet_out_scale_factor', 'time_embedding_dim', 'addition_embed_type_num_heads', 'resnet_time_scale_shift', 'reverse_transformer_layers_per_block', 'time_embedding_act_fn', 'num_attention_heads', 'conv_out_kernel', 'addition_embed_type', 'addition_time_embed_dim', 'time_embedding_type', 'class_embed_type', 'mid_block_type', 'time_cond_proj_dim', 'encoder_hid_dim', 'cross_attention_norm', 'class_embeddings_concat', 'dropout', 'transformer_layers_per_block', 'mid_block_only_cross_attention', 'attention_type', 'projection_class_embeddings_input_dim'} was not found in config. Values will be initialized to default values.
-11/05/2024 21:52:26 - INFO - __main__ - ***** Running training *****
-11/05/2024 21:52:26 - INFO - __main__ -   Num examples = 5
-11/05/2024 21:52:26 - INFO - __main__ -   Num batches each epoch = 5
-11/05/2024 21:52:26 - INFO - __main__ -   Num Epochs = 80
-11/05/2024 21:52:26 - INFO - __main__ -   Instantaneous batch size per device = 1
-11/05/2024 21:52:26 - INFO - __main__ -   Total train batch size (w. parallel, distributed & accumulation) = 1
-11/05/2024 21:52:26 - INFO - __main__ -   Gradient Accumulation steps = 1
-11/05/2024 21:52:26 - INFO - __main__ -   Total optimization steps = 400
+{'dynamic_thresholding_ratio', 'variance_type', 'timestep_spacing', 'sample_max_value', 'clip_sample_range', 'thresholding', 'rescale_betas_zero_snr'} was not found in config. Values will be initialized to default values.
+{'latents_std', 'shift_factor', 'mid_block_add_attention', 'scaling_factor', 'latents_mean', 'use_post_quant_conv', 'force_upcast', 'use_quant_conv'} was not found in config. Values will be initialized to default values.
+{'resnet_out_scale_factor', 'conv_in_kernel', 'addition_time_embed_dim', 'reverse_transformer_layers_per_block', 'cross_attention_norm', 'resnet_time_scale_shift', 'resnet_skip_time_act', 'time_embedding_act_fn', 'addition_embed_type', 'timestep_post_act', 'time_embedding_type', 'mid_block_only_cross_attention', 'projection_class_embeddings_input_dim', 'encoder_hid_dim_type', 'encoder_hid_dim', 'time_cond_proj_dim', 'addition_embed_type_num_heads', 'time_embedding_dim', 'class_embed_type', 'dropout', 'mid_block_type', 'class_embeddings_concat', 'transformer_layers_per_block', 'num_attention_heads', 'conv_out_kernel', 'attention_type'} was not found in config. Values will be initialized to default values.
+{'resnet_out_scale_factor', 'conv_in_kernel', 'addition_time_embed_dim', 'reverse_transformer_layers_per_block', 'cross_attention_norm', 'resnet_time_scale_shift', 'resnet_skip_time_act', 'time_embedding_act_fn', 'addition_embed_type', 'timestep_post_act', 'time_embedding_type', 'mid_block_only_cross_attention', 'projection_class_embeddings_input_dim', 'encoder_hid_dim_type', 'encoder_hid_dim', 'time_cond_proj_dim', 'addition_embed_type_num_heads', 'time_embedding_dim', 'class_embed_type', 'dropout', 'mid_block_type', 'class_embeddings_concat', 'transformer_layers_per_block', 'num_attention_heads', 'conv_out_kernel', 'attention_type'} was not found in config. Values will be initialized to default values.
+11/07/2024 18:04:31 - INFO - __main__ - ***** Running training *****
+11/07/2024 18:04:31 - INFO - __main__ -   Num examples = 5
+11/07/2024 18:04:31 - INFO - __main__ -   Num batches each epoch = 5
+11/07/2024 18:04:31 - INFO - __main__ -   Num Epochs = 80
+11/07/2024 18:04:31 - INFO - __main__ -   Instantaneous batch size per device = 1
+11/07/2024 18:04:31 - INFO - __main__ -   Total train batch size (w. parallel, distributed & accumulation) = 1
+11/07/2024 18:04:31 - INFO - __main__ -   Gradient Accumulation steps = 1
+11/07/2024 18:04:31 - INFO - __main__ -   Total optimization steps = 400
 /fs01/home/yanting/RPO/train.py:937: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
   with torch.cuda.amp.autocast():
-11/05/2024 21:58:59 - INFO - __main__ - Global step: 40, Validation reward: 0.708
+11/07/2024 18:11:25 - INFO - __main__ - Global step: 40, Validation reward: 0.711
 Configuration saved in /scratch/ssd004/scratch/yanting/logs/path-to-save-model/rpo/vae/config.json
 Model weights saved in /scratch/ssd004/scratch/yanting/logs/path-to-save-model/rpo/vae/diffusion_pytorch_model.safetensors
 Configuration saved in /scratch/ssd004/scratch/yanting/logs/path-to-save-model/rpo/unet/config.json
 Model weights saved in /scratch/ssd004/scratch/yanting/logs/path-to-save-model/rpo/unet/diffusion_pytorch_model.safetensors
 Configuration saved in /scratch/ssd004/scratch/yanting/logs/path-to-save-model/rpo/scheduler/scheduler_config.json
 Configuration saved in /scratch/ssd004/scratch/yanting/logs/path-to-save-model/rpo/model_index.json
-11/05/2024 21:59:15 - INFO - __main__ - Max reward increasing from -inf to 0.708, Saved state to /scratch/ssd004/scratch/yanting/logs/path-to-save-model/rpo/
-11/05/2024 22:05:47 - INFO - __main__ - Global step: 80, Validation reward: 0.704
-11/05/2024 22:12:19 - INFO - __main__ - Global step: 120, Validation reward: 0.710
+11/07/2024 18:11:41 - INFO - __main__ - Max reward increasing from -inf to 0.711, Saved state to /scratch/ssd004/scratch/yanting/logs/path-to-save-model/rpo/
+11/07/2024 18:18:38 - INFO - __main__ - Global step: 80, Validation reward: 0.709
+11/07/2024 18:25:31 - INFO - __main__ - Global step: 120, Validation reward: 0.715
 Configuration saved in /scratch/ssd004/scratch/yanting/logs/path-to-save-model/rpo/vae/config.json
 Model weights saved in /scratch/ssd004/scratch/yanting/logs/path-to-save-model/rpo/vae/diffusion_pytorch_model.safetensors
 Configuration saved in /scratch/ssd004/scratch/yanting/logs/path-to-save-model/rpo/unet/config.json
 Model weights saved in /scratch/ssd004/scratch/yanting/logs/path-to-save-model/rpo/unet/diffusion_pytorch_model.safetensors
 Configuration saved in /scratch/ssd004/scratch/yanting/logs/path-to-save-model/rpo/scheduler/scheduler_config.json
 Configuration saved in /scratch/ssd004/scratch/yanting/logs/path-to-save-model/rpo/model_index.json
-11/05/2024 22:12:35 - INFO - __main__ - Max reward increasing from 0.708 to 0.710, Saved state to /scratch/ssd004/scratch/yanting/logs/path-to-save-model/rpo/
-11/05/2024 22:19:06 - INFO - __main__ - Global step: 160, Validation reward: 0.707
-11/05/2024 22:25:38 - INFO - __main__ - Global step: 200, Validation reward: 0.713
+11/07/2024 18:25:48 - INFO - __main__ - Max reward increasing from 0.711 to 0.715, Saved state to /scratch/ssd004/scratch/yanting/logs/path-to-save-model/rpo/
+11/07/2024 18:32:41 - INFO - __main__ - Global step: 160, Validation reward: 0.717
 Configuration saved in /scratch/ssd004/scratch/yanting/logs/path-to-save-model/rpo/vae/config.json
 Model weights saved in /scratch/ssd004/scratch/yanting/logs/path-to-save-model/rpo/vae/diffusion_pytorch_model.safetensors
 Configuration saved in /scratch/ssd004/scratch/yanting/logs/path-to-save-model/rpo/unet/config.json
 Model weights saved in /scratch/ssd004/scratch/yanting/logs/path-to-save-model/rpo/unet/diffusion_pytorch_model.safetensors
 Configuration saved in /scratch/ssd004/scratch/yanting/logs/path-to-save-model/rpo/scheduler/scheduler_config.json
 Configuration saved in /scratch/ssd004/scratch/yanting/logs/path-to-save-model/rpo/model_index.json
-11/05/2024 22:25:56 - INFO - __main__ - Max reward increasing from 0.710 to 0.713, Saved state to /scratch/ssd004/scratch/yanting/logs/path-to-save-model/rpo/
-11/05/2024 22:32:27 - INFO - __main__ - Global step: 240, Validation reward: 0.716
+11/07/2024 18:32:57 - INFO - __main__ - Max reward increasing from 0.715 to 0.717, Saved state to /scratch/ssd004/scratch/yanting/logs/path-to-save-model/rpo/
+11/07/2024 18:39:51 - INFO - __main__ - Global step: 200, Validation reward: 0.717
 Configuration saved in /scratch/ssd004/scratch/yanting/logs/path-to-save-model/rpo/vae/config.json
 Model weights saved in /scratch/ssd004/scratch/yanting/logs/path-to-save-model/rpo/vae/diffusion_pytorch_model.safetensors
 Configuration saved in /scratch/ssd004/scratch/yanting/logs/path-to-save-model/rpo/unet/config.json
 Model weights saved in /scratch/ssd004/scratch/yanting/logs/path-to-save-model/rpo/unet/diffusion_pytorch_model.safetensors
 Configuration saved in /scratch/ssd004/scratch/yanting/logs/path-to-save-model/rpo/scheduler/scheduler_config.json
 Configuration saved in /scratch/ssd004/scratch/yanting/logs/path-to-save-model/rpo/model_index.json
-11/05/2024 22:32:44 - INFO - __main__ - Max reward increasing from 0.713 to 0.716, Saved state to /scratch/ssd004/scratch/yanting/logs/path-to-save-model/rpo/
-11/05/2024 22:39:15 - INFO - __main__ - Global step: 280, Validation reward: 0.716
+11/07/2024 18:40:07 - INFO - __main__ - Max reward increasing from 0.717 to 0.717, Saved state to /scratch/ssd004/scratch/yanting/logs/path-to-save-model/rpo/
+11/07/2024 18:47:02 - INFO - __main__ - Global step: 240, Validation reward: 0.718
 Configuration saved in /scratch/ssd004/scratch/yanting/logs/path-to-save-model/rpo/vae/config.json
 Model weights saved in /scratch/ssd004/scratch/yanting/logs/path-to-save-model/rpo/vae/diffusion_pytorch_model.safetensors
 Configuration saved in /scratch/ssd004/scratch/yanting/logs/path-to-save-model/rpo/unet/config.json
 Model weights saved in /scratch/ssd004/scratch/yanting/logs/path-to-save-model/rpo/unet/diffusion_pytorch_model.safetensors
 Configuration saved in /scratch/ssd004/scratch/yanting/logs/path-to-save-model/rpo/scheduler/scheduler_config.json
 Configuration saved in /scratch/ssd004/scratch/yanting/logs/path-to-save-model/rpo/model_index.json
-11/05/2024 22:39:32 - INFO - __main__ - Max reward increasing from 0.716 to 0.716, Saved state to /scratch/ssd004/scratch/yanting/logs/path-to-save-model/rpo/
-11/05/2024 22:46:04 - INFO - __main__ - Global step: 320, Validation reward: 0.715
-11/05/2024 22:52:35 - INFO - __main__ - Global step: 360, Validation reward: 0.715
-11/05/2024 22:59:07 - INFO - __main__ - Global step: 400, Validation reward: 0.721
+11/07/2024 18:47:19 - INFO - __main__ - Max reward increasing from 0.717 to 0.718, Saved state to /scratch/ssd004/scratch/yanting/logs/path-to-save-model/rpo/
+11/07/2024 18:54:13 - INFO - __main__ - Global step: 280, Validation reward: 0.721
 Configuration saved in /scratch/ssd004/scratch/yanting/logs/path-to-save-model/rpo/vae/config.json
 Model weights saved in /scratch/ssd004/scratch/yanting/logs/path-to-save-model/rpo/vae/diffusion_pytorch_model.safetensors
 Configuration saved in /scratch/ssd004/scratch/yanting/logs/path-to-save-model/rpo/unet/config.json
 Model weights saved in /scratch/ssd004/scratch/yanting/logs/path-to-save-model/rpo/unet/diffusion_pytorch_model.safetensors
 Configuration saved in /scratch/ssd004/scratch/yanting/logs/path-to-save-model/rpo/scheduler/scheduler_config.json
 Configuration saved in /scratch/ssd004/scratch/yanting/logs/path-to-save-model/rpo/model_index.json
-11/05/2024 22:59:24 - INFO - __main__ - Max reward increasing from 0.716 to 0.721, Saved state to /scratch/ssd004/scratch/yanting/logs/path-to-save-model/rpo/
+11/07/2024 18:54:29 - INFO - __main__ - Max reward increasing from 0.718 to 0.721, Saved state to /scratch/ssd004/scratch/yanting/logs/path-to-save-model/rpo/
+11/07/2024 19:01:23 - INFO - __main__ - Global step: 320, Validation reward: 0.715
+11/07/2024 19:08:16 - INFO - __main__ - Global step: 360, Validation reward: 0.717
+11/07/2024 19:15:09 - INFO - __main__ - Global step: 400, Validation reward: 0.721

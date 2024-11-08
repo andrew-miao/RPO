@@ -115,7 +115,12 @@ accelerate launch inference_sdxl.py \
 ```
 
 ## 🌠 Results
+Results from SD:
+| ![figure1](assets/figure-1_sd.png) | ![figure2](assets/figure-2_sd.png) |
+|--------------------------------|--------------------------------|
+| ![figure3](assets/figure-3_sd.png) | ![figure4](assets/figure-4_sd.png) |
 
+Results from SDXL:
 | ![figure1](assets/figure-1.jpg) | ![figure2](assets/figure-2.jpg) |
 |--------------------------------|--------------------------------|
 | ![figure3](assets/figure-3.jpg) | ![figure4](assets/figure-4.jpg) |

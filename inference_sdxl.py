@@ -2,39 +2,37 @@ import torch
 import os
 from diffusers import StableDiffusionXLPipeline
 import argparse
-import re
 from accelerate import PartialState
 from huggingface_hub.utils import insecure_hashlib
-from utils import load_prompts
-import tqdm
 
-distributed_state = PartialState()
 
 def load_pipeline(lora_dir):
     pipeline = StableDiffusionXLPipeline.from_pretrained("stabilityai/stable-diffusion-xl-base-1.0", torch_dtype=torch.float16).to("cuda")    
     pipeline.load_lora_weights(lora_dir)  
     pipeline.set_progress_bar_config(disable=True)
-    pipeline.to(distributed_state.device)
     return pipeline
 
 def inference(pipeline, prompt, save_dir, seed, num_inference_images=4):
-    pipeline.to(distributed_state.device)
     ngpus = torch.cuda.device_count()
     generator = torch.torch.Generator(device="cuda")
     generator.manual_seed(seed)
 
     if ngpus > 1:
+        distributed_state = PartialState()
+        pipeline.to(distributed_state.device)
         with distributed_state.split_between_processes([prompt] * ngpus) as prompt:
             image = pipeline(prompt=prompt, generator=generator).images[0]
             hash_image = insecure_hashlib.sha1(image.tobytes()).hexdigest()
-            image_filename = save_dir + f"{prompt}" + f"{hash_image}.jpg"
+            image_filename = os.path.join(save_dir, f"{prompt}-{hash_image}.png")
             image.save(image_filename)
     else:
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        pipeline.to(device)
         for _ in range(num_inference_images):
             with torch.no_grad():
                 image = pipeline(prompt=prompt, generator=generator).images[0]
                 hash_image = insecure_hashlib.sha1(image.tobytes()).hexdigest()
-                image_filename = save_dir + f"{prompt}" + f"{hash_image}.jpg"
+                image_filename = os.path.join(save_dir, f"{prompt}-{hash_image}.png")
                 image.save(image_filename)
 
 def parse_args():
