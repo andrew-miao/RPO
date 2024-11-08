@@ -1,8 +1,0 @@
-The following values were not passed to `accelerate launch` and had defaults used instead:
-	`--num_processes` was set to a value of `1`
-	`--num_machines` was set to a value of `1`
-	`--mixed_precision` was set to a value of `'no'`
-	`--dynamo_backend` was set to a value of `'no'`
-To avoid this warning pass in values for each of the problematic parameters or run `accelerate config`.
-Loading pipeline components...:   0%|          | 0/7 [00:00<?, ?it/s]Loading pipeline components...:  14%|█▍        | 1/7 [00:09<00:56,  9.35s/it]Loading pipeline components...:  29%|██▊       | 2/7 [00:11<00:25,  5.03s/it]Loading pipeline components...:  57%|█████▋    | 4/7 [00:44<00:36, 12.32s/it]Loading pipeline components...:  86%|████████▌ | 6/7 [00:44<00:06,  6.54s/it]Loading pipeline components...: 100%|██████████| 7/7 [00:46<00:00,  5.27s/it]Loading pipeline components...: 100%|██████████| 7/7 [00:46<00:00,  6.62s/it]
-Inference images saved to /scratch/ssd004/scratch/yanting/logs/rpo_sdxl/inference/dog/
