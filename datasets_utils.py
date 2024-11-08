@@ -6,7 +6,6 @@ import torch
 from torch.utils.data import Dataset
 from utils import read_images
 from evaluation_metrics import RewardModel
-import jax
 import os
 
 class PreferenceDataset(Dataset):
@@ -46,7 +45,7 @@ class PreferenceDataset(Dataset):
             raise ValueError("Generated images root doesn't exists.")
         
         self.generated_data_root = generated_data_root
-        self.num_generated_images = jax.device_count()
+        self.num_generated_images = torch.cuda.device_count()
         self._length = max(self.num_generated_images , self.num_reference_images)
 
         # Compute the reward
