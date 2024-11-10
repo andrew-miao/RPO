@@ -1,9 +1,11 @@
 # Subject-driven Text-to-Image Generation via Preference-based Reinforcement Learning
 
 This repo contains the official Pytorch/GPU implementation for the NeurIPS 2024 paper [Subject-driven Text-to-Image Generation via Preference-based Reinforcement Learning](https://arxiv.org/abs/2407.12164),
-by Yanting Miao, William Loh, Suraj Kothawade, Pascal Poupart, Abdullah Rashwan, Yeqing Li.
+by Yanting Miao, William Loh, Suraj Kothawade, Pascal Poupart, Abdullah Rashwan, Yeqing Li. You can find more details/results on our [project page](https://andrew-miao.github.io/RPO/).
 
-**TL;DR:**  $\lambda$-harmonic function provides a way for model selection and enables early-stopping. RPO is an efficient subject-driven finetuning method that achieves the following performance on [DreamBench](https://github.com/google/dreambooth).
+**TL;DR:**  We present the $\lambda$-Harmonic reward function and Reward Preference Optimization (RPO) for the subject-driven text-to-image generation task. 
+
+RPO is an efficient subject-driven finetuning method that achieves the following performance on [DreamBench](https://github.com/google/dreambooth).
 
 | $\lambda_{\text{val}}$ | DINO | CLIP-I| CLIP-T |
 |----|----|----|----|
